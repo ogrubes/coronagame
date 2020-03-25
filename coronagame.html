@@ -173,6 +173,11 @@ var POP = {
             }
         }
 
+        // cycle through all households, which may spawn travelers
+        for (var i = 0; i < POP.households.length; i++) {
+            POP.households[i].update();
+        }
+
         // check for collisions with travelers!
         // do this here centrally instead of in individual entity
         // "update" methods to enable travelers to run their updates
@@ -183,9 +188,10 @@ var POP = {
 
             for (var h = 0; h < POP.households.length; h++) {
                 var household = POP.households[h];
+                if (household.infected) continue; // already doomed!
+
                 var shielded = false;
                 if (POP.Util.collides(traveler, household)) {
-
                     // check for shield protection!
                     // shield must hit house & traveler to be effective
                     for (var s = 0; s < POP.shields.length; s++) {
@@ -328,6 +334,24 @@ POP.Draw = {
         ctx.stroke();
     },
 
+    triangle: function(x, y, r, color) {
+        // equilateral triangle centered at x, y
+        var ctx = POP.ctx;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+
+        r = 1.2 * r; // since triangles appear smaller than circles
+
+        ctx.moveTo(x, y - r);
+        var rootThree = 3**(1/2);
+        ctx.lineTo(x - r*rootThree/2, y + r/2);
+        ctx.lineTo(x + r*rootThree/2, y + r/2);
+        ctx.lineTo(x, y - r);
+
+        ctx.closePath();
+        ctx.fill();
+    },
+
     text: function(string, x, y, size, col) {
         POP.ctx.font = 'bold '+size+'px Monospace';
         POP.ctx.fillStyle = col;
@@ -382,6 +406,7 @@ POP.Traveler = function() {
 
     // Shape
     this.type = 'traveler';
+    this.shape = 'circle';
     this.radius = 5;
     this.remove = false;
 
@@ -397,11 +422,12 @@ POP.Traveler = function() {
     this.opacity = 1;
     this.opacityFade = 0.02;  // amount by which to fade on each game tick
 
-    // Location
+    // Location & Speed
     // TODO: set airport locations, each with their own rates.
     // ex: OAK with 1.2x nextTraveler of SFO, for instance.
     this.x = 0 - 2 * this.radius; // make sure it starts off screen
     this.y = Math.random() * POP.HEIGHT;
+    this.speed = Math.random() > 0.1 ? 1 : 2; // make some speedy ones
 
     this.update = function() {
         this.color();
@@ -409,7 +435,13 @@ POP.Traveler = function() {
     };
 
     this.render = function() {
-        POP.Draw.circle(this.x, this.y, this.radius, 'rgba('+this.r+','+this.g+','+this.b+','+this.opacity+')');
+        var method = POP.Draw.circle;
+        var coloration = 'rgba('+this.r+','+this.g+','+this.b+','+this.opacity+')'
+
+        if (this.shape == 'triangle') {
+            method = POP.Draw.triangle;
+        }
+        method(this.x, this.y, this.radius, coloration);
     };
 
     // Helper functions:
@@ -443,20 +475,23 @@ POP.Traveler = function() {
 
         // move across the screen by 1 pixel
         if (this.x < POP.WIDTH / 3) {
-            this.x += 1;
+            this.x += this.speed;
         } else {
             if (Math.random() > 0.2) {
-                this.x += 1;
+                this.x += this.speed;
             } else {
-                this.x -= 1;
+                this.x -= this.speed;
             }
         }
 
         // move y
+        // non-circular shapes appear jittery when moving >1 px.
+        // also, different move characteristics are cool.
+        var ySpeed = this.shape == 'circle' ? 2 : 1;
         if (Math.random() > 0.5) {
-            this.y += 2;
+            this.y += ySpeed;
         } else {
-            this.y -= 2;
+            this.y -= ySpeed;
         }
 
         // if off screen, flag for removal
@@ -493,8 +528,23 @@ POP.Household = function(x, y) {
         POP.Draw.house(this.x, this.y, this.halfWidth, color);
     };
 
+    this.update = function() {
+        var spawnRate = 0.001; // this is quite small bc is tested every game tick
+        if (this.infected && Math.random() < spawnRate) {
+            this.spawnTraveler();
+        }
+    }
+
     this.setInfected = function() {
         this.infected = true;
+    }
+
+    this.spawnTraveler = function() {
+        var newTraveler = new POP.Traveler();
+        newTraveler.x = this.x;
+        newTraveler.y = this.y + this.size + 1; // offset to avoid colliding with (and infinite respawning from) your own household.
+        newTraveler.shape = 'triangle'; // to differentiate from circular
+        POP.travelers.push(newTraveler);
     }
 };
 
