@@ -25,7 +25,7 @@ canvas { display: block; margin: 0 auto; background: #fff; }
 var POP = {
 
     // set up some initial values
-    WIDTH: 480, //320, 
+    WIDTH: 320, 
     HEIGHT:  480, 
     // we'll set the rest of these
     // in the init function
@@ -70,17 +70,19 @@ var POP = {
         // we're ready to resize
         POP.resize();
 
-		// listen for clicks (touch & lift)
+// listen for clicks (touch & lift)
 		window.addEventListener('click', function(e) {
 		    e.preventDefault();
 		    POP.Input.set(e);
 		}, false);
+// listen for taps (mobile use)
+                window.addEventListener('touchstart', function(e) {
+		    e.preventDefault();
+                    POP.Input.set(e.touches[0]);
+		}, false);
 
         // prevent default behaviors
         // so the screen doesn't tap, scroll, or zoom
-		window.addEventListener('touchstart', function(e) {
-		    e.preventDefault();
-		}, false);
 		window.addEventListener('touchmove', function(e) {
 		    e.preventDefault();
 		}, false);
@@ -103,15 +105,15 @@ var POP = {
 
     resize: function() {
 
-        // // sniff out Android and iOS so that we can add
-        // // padding to scroll past the address bar
-        // var ua = navigator.userAgent.toLowerCase();
-        // var android = ua.indexOf('android') > -1 ? true : false;
-        // var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
+        // sniff out Android and iOS so that we can add
+        // padding to scroll past the address bar
+        var ua = navigator.userAgent.toLowerCase();
+        var android = ua.indexOf('android') > -1 ? true : false;
+        var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
 
-        // if (android || ios) {
-        //     document.body.style.height = (window.innerHeight + 50) + 'px';
-        // }
+        if (android || ios) {
+            document.body.style.height = (window.innerHeight + 50) + 'px';
+        }
 
         // resize the width in proportion
         // to the new height
