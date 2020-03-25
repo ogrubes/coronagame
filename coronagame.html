@@ -42,6 +42,10 @@ var POP = {
 
     // hold a reference to all touches, bubbles, particles and any other dynamic thing we want to add to the game
     entities: [],
+    // store static households separately
+    households: [],
+    numHouseholds: 10,
+
     // number of game ticks until we spawn a bubble
 	nextBubble: 100,
 
@@ -63,21 +67,8 @@ var POP = {
         // interact with the canvas api
         POP.ctx = POP.canvas.getContext('2d');
 
-        // we need to sniff out Android and iOS
-		// so that we can hide the address bar in
-		// our resize function
-		POP.ua = navigator.userAgent.toLowerCase();
-		POP.android = POP.ua.indexOf('android') > -1 ? true : false;
-		POP.ios = ( POP.ua.indexOf('iphone') > -1 || POP.ua.indexOf('ipad') > -1  ) ? true : false;
-
         // we're ready to resize
         POP.resize();
-
-        // TODO: draw "home" screen
-		POP.Draw.clear();
-		POP.Draw.rect(120,120,150,150, 'green');
-		POP.Draw.circle(100, 100, 50, 'rgba(255,0,0,0.5)');
-		POP.Draw.text('Hello World', 100, 100, 10, '#000');
 
 		// listen for clicks (touch & lift)
 		window.addEventListener('click', function(e) {
@@ -93,8 +84,7 @@ var POP = {
 		}, false);
 
 		// prevent default behaviour
-		// so the screen doesn't scroll
-		// or zoom
+		// so the screen doesn't scroll or zoom
 		window.addEventListener('touchmove', function(e) {
 		    e.preventDefault();
 		}, false);
@@ -102,8 +92,16 @@ var POP = {
 		    e.preventDefault();
 		}, false);
 
+        // Setup Game Data
+        POP.setup();
 
-		// Call the game loop!
+        // // TODO: draw "home" screen
+        // POP.Draw.clear();
+        // POP.Draw.rect(120,120,150,150, 'green');
+        // POP.Draw.circle(100, 100, 50, 'rgba(255,0,0,0.5)');
+        // POP.Draw.text('Hello World', 100, 100, 10, '#000');
+
+		// Start the game loop!
 		POP.loop();
     },
 
@@ -118,10 +116,13 @@ var POP = {
 		POP.offset.top = POP.canvas.offsetTop;
 		POP.offset.left = POP.canvas.offsetLeft;
 
-        // this will create some extra space on the
-        // page, allowing us to scroll past
-        // the address bar, thus hiding it.
-        if (POP.android || POP.ios) {
+        // sniff out Android and iOS so that we can add
+        // padding to scroll past the address bar
+        var ua = navigator.userAgent.toLowerCase();
+        var android = ua.indexOf('android') > -1 ? true : false;
+        var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
+
+        if (android || ios) {
             document.body.style.height = (window.innerHeight + 50) + 'px';
         }
 
@@ -137,6 +138,23 @@ var POP = {
         window.setTimeout(function() {
                 window.scrollTo(0,1);
         }, 1);
+    },
+
+    // Populate game data (household placements, static settings)
+    setup: function() {
+
+        // Place households
+        
+        // TODO: overlap.
+        // var houseSpacing = 50; // min pixels away from your neighbors, from house centers.
+        // var validCoords = 
+        var edgeBuffer = 50; // pixels from any edge
+        for (var i = 0; i < POP.numHouseholds; i++) {
+            var x = Math.random() * (POP.WIDTH - 2*edgeBuffer) + edgeBuffer;
+            var y = Math.random() * (POP.HEIGHT - 2*edgeBuffer) + edgeBuffer;
+
+            POP.households.push(new POP.Household(x, y));
+        }
     },
 
     // 2. update characters and process collisions
@@ -176,15 +194,24 @@ var POP = {
 		    	POP.nextBubble -= wildInt;
 		    }
 		}
+
+        // TODO: check for collisions with other entities,
 	},
 
-	// 3. render characters on the screen
+	// 3. render stage & characters on the screen
 	render: function() {
+        
+        // Background
         var lightBlue = '#ADD8FF';
-   		POP.Draw.rect(0, 0, POP.WIDTH, POP.HEIGHT, lightBlue);
+        POP.Draw.rect(0, 0, POP.WIDTH, POP.HEIGHT, lightBlue);
 
-    	// cycle through all entities and render to canvas
-    	for (var i = 0; i < POP.entities.length; i += 1) {
+        // Households
+        for (var j = 0; j < POP.households.length; j++) {
+            POP.households[j].render();
+        }
+
+    	// Active entities
+    	for (var i = 0; i < POP.entities.length; i++) {
         	POP.entities[i].render();
     	}
 	},
@@ -223,17 +250,43 @@ POP.Draw = {
         POP.ctx.clearRect(0, 0, POP.WIDTH, POP.HEIGHT);
     },
 
-    rect: function(x, y, w, h, col) {
-        POP.ctx.fillStyle = col;
+    rect: function(x, y, w, h, color) {
+        POP.ctx.fillStyle = color;
         POP.ctx.fillRect(x, y, w, h);
     },
 
-    circle: function(x, y, r, col) {
-        POP.ctx.fillStyle = col;
+    circle: function(x, y, r, color) {
+        POP.ctx.fillStyle = color;
         POP.ctx.beginPath();
         POP.ctx.arc(x + 5, y + 5, r, 0,  Math.PI * 2, true);
         POP.ctx.closePath();
         POP.ctx.fill();
+    },
+
+    house: function(x, y, r, color) {
+        var ctx = POP.ctx;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        // lower left corner
+        ctx.moveTo(x - r, y - r);
+        ctx.lineTo(x - r, y + r);
+        ctx.lineTo(x + r, y + r);
+        ctx.lineTo(x + r, y - r);
+
+        ctx.moveTo(x, y - 2*r);
+        ctx.lineTo(x - 1.5*r, y - 0.5*r);
+        // double-up
+        ctx.moveTo(x, y - 2*r - 1);
+        ctx.lineTo(x - 1.5*r, y - 0.5*r - 1);
+
+        ctx.moveTo(x, y - 2*r);
+        ctx.lineTo(x + 1.5*r, y - 0.5*r);
+        // double-up
+        ctx.moveTo(x, y - 2*r - 1);
+        ctx.lineTo(x + 1.5*r, y - 0.5*r - 1);
+
+        ctx.closePath();
+        ctx.stroke();
     },
 
     text: function(string, x, y, size, col) {
@@ -245,8 +298,6 @@ POP.Draw = {
 };
 
 POP.Util = {
-
-
 
 	// check if two circles overlap
 	collides: function(a, b) {
@@ -383,6 +434,36 @@ POP.Bubble = function() {
         }
     };
 
+};
+
+// Households.
+POP.Household = function(x, y) {
+
+    var sizes = [5, 8, 8, 10, 15];
+    this.size = sizes[Math.floor(Math.random() * sizes.length)]; // in pixels
+
+    this.x = x;
+    this.y = y;
+    this.halfWidth = this.size;
+    this.infected = false;
+
+    this.update = function() {
+        // TODO: check for collisions with other entities,
+        var collided = Math.random() < 0.5;
+        if (collided) {
+            this.infected = true;
+        }
+    };
+
+    this.render = function() {
+        var color;
+        if (this.infected) {
+            color = 'red';
+        } else {
+            color = 'yellow';
+        }
+        POP.Draw.house(this.x, this.y, this.halfWidth, color);
+    };
 };
 
 window.addEventListener('load', POP.init, false);
