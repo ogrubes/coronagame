@@ -40,14 +40,14 @@ var POP = {
 	scale:  1,
     offset: {top: 0, left: 0},
 
-    // hold a reference to all touches, bubbles, particles and any other dynamic thing we want to add to the game
-    entities: [],
-    // store static households separately
+    // hold references to all travelers, shields, and any other dynamic thing we want to add to the game
+    travelers: [],
+    shields: [],
     households: [],
     numHouseholds: 10,
 
-    // number of game ticks until we spawn a bubble
-	nextBubble: 100,
+    // number of game ticks until we spawn a traveler
+	nextTraveler: 100,
 
     init: function() {
 
@@ -76,15 +76,11 @@ var POP = {
 		    POP.Input.set(e);
 		}, false);
 
-		// listen for touches (mousedown: user's first contact with
-		// the screen, with or without lift off)
+        // prevent default behaviors
+        // so the screen doesn't tap, scroll, or zoom
 		window.addEventListener('touchstart', function(e) {
 		    e.preventDefault();
-		    POP.Input.set(e.touches[0]);
 		}, false);
-
-		// prevent default behaviour
-		// so the screen doesn't scroll or zoom
 		window.addEventListener('touchmove', function(e) {
 		    e.preventDefault();
 		}, false);
@@ -107,24 +103,21 @@ var POP = {
 
     resize: function() {
 
-        POP.currentHeight = window.innerHeight;
+        // // sniff out Android and iOS so that we can add
+        // // padding to scroll past the address bar
+        // var ua = navigator.userAgent.toLowerCase();
+        // var android = ua.indexOf('android') > -1 ? true : false;
+        // var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
+
+        // if (android || ios) {
+        //     document.body.style.height = (window.innerHeight + 50) + 'px';
+        // }
+
         // resize the width in proportion
         // to the new height
+        POP.currentHeight = window.innerHeight;
         POP.currentWidth = POP.currentHeight * POP.RATIO;
-
 		POP.scale = POP.currentWidth / POP.WIDTH;
-		POP.offset.top = POP.canvas.offsetTop;
-		POP.offset.left = POP.canvas.offsetLeft;
-
-        // sniff out Android and iOS so that we can add
-        // padding to scroll past the address bar
-        var ua = navigator.userAgent.toLowerCase();
-        var android = ua.indexOf('android') > -1 ? true : false;
-        var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
-
-        if (android || ios) {
-            document.body.style.height = (window.innerHeight + 50) + 'px';
-        }
 
         // set the new canvas style width and height
         // note: our canvas is still 320 x 480, but
@@ -160,42 +153,83 @@ var POP = {
     // 2. update characters and process collisions
 	update: function() {
 
-	    // cycle through all entities and update as necessary
-	    for (var i = 0; i < POP.entities.length; i += 1) {
-	        POP.entities[i].update();
+	    // cycle through all travelers and update as necessary
+	    for (var i = 0; i < POP.travelers.length; i++) {
+	        POP.travelers[i].update();
 
-	        // delete from array if remove property
-	        // flag is set to true
-	        if (POP.entities[i].remove) {
-	            POP.entities.splice(i, 1);
+	        // delete from array if remove property is set
+	        if (POP.travelers[i].remove) {
+	            POP.travelers.splice(i, 1);
 	        }
 	    }
 
-	    // spawn a new instance of Touch
+        // cycle through all shields
+        for (var i = 0; i < POP.shields.length; i++) {
+            POP.shields[i].update();
+
+            // delete from array if remove property is set
+            if (POP.shields[i].remove) {
+                POP.shields.splice(i, 1);
+            }
+        }
+
+        // check for collisions with travelers!
+        // do this here centrally instead of in individual entity
+        // "update" methods to enable travelers to run their updates
+        // independently first; also to allow algorithmic efficiency.
+        for (var t = 0; t < POP.travelers.length; t++) {
+            var traveler = POP.travelers[t];
+            if (!traveler.isContagious) continue;
+
+            for (var h = 0; h < POP.households.length; h++) {
+                var household = POP.households[h];
+                var shielded = false;
+                if (POP.Util.collides(traveler, household)) {
+
+                    // check for shield protection!
+                    // shield must hit house & traveler to be effective
+                    for (var s = 0; s < POP.shields.length; s++) {
+                        var shield = POP.shields[s];
+                        if (POP.Util.collides(traveler, shield) && POP.Util.collides(household, shield)) {
+                            shielded = true;
+                            break;
+                        }
+                    }
+                    if (!shielded) {
+                        household.setInfected();
+                    }
+                }
+
+            }
+        }
+
+        // EVENT LISTENERS
+
+	    // spawn a new instance of Shield
 	    // if the user has tapped the screen
 	    if (POP.Input.tapped) {
-	        POP.entities.push(new POP.Touch(POP.Input.x, POP.Input.y));
+	        POP.shields.push(new POP.Shield(POP.Input.x, POP.Input.y));
 	        // set tapped back to false
-	        // to avoid spawning a new touch
+	        // to avoid spawning a new shield
 	        // in the next cycle
 	        POP.Input.tapped = false;
 	    }
 
-	    // decrease our nextBubble counter
-		POP.nextBubble -= 1;
-		if (POP.nextBubble < 0) {
-		    // put a new instance of bubble into our entities array
-		    POP.entities.push(new POP.Bubble());
+        // BACKGROUND PROCESSES
+
+	    // decrease our nextTraveler counter
+		POP.nextTraveler -= 1;
+		if (POP.nextTraveler < 0) {
+		    // put a new instance of traveler into our travelers array
+		    POP.travelers.push(new POP.Traveler());
 		    // reset the counter with a random value
 		    var wildInt = Math.floor( Math.random() * 100 );
-		    if (wildInt > POP.nextBubble ) {
-		    	POP.nextBubble += wildInt;
+		    if (wildInt > POP.nextTraveler ) {
+		    	POP.nextTraveler += wildInt;
 		    } else {
-		    	POP.nextBubble -= wildInt;
+		    	POP.nextTraveler -= wildInt;
 		    }
 		}
-
-        // TODO: check for collisions with other entities,
 	},
 
 	// 3. render stage & characters on the screen
@@ -210,10 +244,15 @@ var POP = {
             POP.households[j].render();
         }
 
-    	// Active entities
-    	for (var i = 0; i < POP.entities.length; i++) {
-        	POP.entities[i].render();
+    	// Active travelers
+    	for (var i = 0; i < POP.travelers.length; i++) {
+        	POP.travelers[i].render();
     	}
+
+        // Active shields
+        for (var i = 0; i < POP.shields.length; i++) {
+            POP.shields[i].render();
+        }
 	},
 
 	// the actual game loop!
@@ -236,8 +275,8 @@ POP.Input = {
     tapped: false,
 
     set: function(data) {
-    	this.x = (data.pageX - POP.offset.left) / POP.scale;
-		this.y = (data.pageY - POP.offset.top) / POP.scale;
+    	this.x = (data.pageX - POP.canvas.offsetLeft) / POP.scale;
+		this.y = (data.pageY - POP.canvas.offsetTop) / POP.scale;
         this.tapped = true; 
 
         POP.Draw.circle(this.x, this.y, 10, 'red');
@@ -258,7 +297,7 @@ POP.Draw = {
     circle: function(x, y, r, color) {
         POP.ctx.fillStyle = color;
         POP.ctx.beginPath();
-        POP.ctx.arc(x + 5, y + 5, r, 0,  Math.PI * 2, true);
+        POP.ctx.arc(x, y, r, 0,  Math.PI * 2, true);
         POP.ctx.closePath();
         POP.ctx.fill();
     },
@@ -314,15 +353,15 @@ POP.Util = {
     }
 };
 
-// Spawn humans at Touch points.
-POP.Touch = function(x, y) {
+// Generate Shields at touch points.
+POP.Shield = function(x, y) {
 
-    this.type = 'touch';
+    this.type = 'shield';
     this.x = x;
     this.y = y;
-    this.radius = 5;
+    this.radius = 30;
     this.opacity = 1;
-    this.fade = 0.01;  // amount by which to fade on each game tick
+    this.fade = 0.02;  // amount by which to fade on each game tick
     this.remove = false;  // flag for removing this entity
 
     this.update = function() {
@@ -333,21 +372,23 @@ POP.Touch = function(x, y) {
     };
 
     this.render = function() {
-        POP.Draw.circle(this.x, this.y, this.radius, 'rgba(255,0,0,'+this.opacity+')');
+        POP.Draw.circle(this.x, this.y, this.radius, 'rgba(0,175,125,'+this.opacity+')');
     };
 
 };
 
 // Traveler. Close borders to prevent Travelers from appearing!
-POP.Bubble = function() {
+POP.Traveler = function() {
 
     // Shape
-    this.type = 'bubble';
+    this.type = 'traveler';
     this.radius = 5;
     this.remove = false;
 
     // Coloration
     this.hasDisease = Math.random() < 0.7;
+    this.isContagious = this.hasDisease;
+
     this.maxFlush = 160;  // rgb metric
     this.r = 255;
     this.g = this.hasDisease ? 0 : 255;
@@ -358,39 +399,33 @@ POP.Bubble = function() {
 
     // Location
     // TODO: set airport locations, each with their own rates.
-    // ex: OAK with 1.2x nextBubble of SFO, for instance.
+    // ex: OAK with 1.2x nextTraveler of SFO, for instance.
     this.x = 0 - 2 * this.radius; // make sure it starts off screen
     this.y = Math.random() * POP.HEIGHT;
 
     this.update = function() {
-
         this.color();
         this.move();
-        
-        // TODO: check for collisions with other entities,
-        // if so, flag for contact or removal
-        /*
-        		POP.offset.top = POP.canvas.offsetTop;
-		POP.offset.left
-		*/
     };
 
     this.render = function() {
         POP.Draw.circle(this.x, this.y, this.radius, 'rgba('+this.r+','+this.g+','+this.b+','+this.opacity+')');
     };
 
-
     // Helper functions:
 
     this.color = function() {
-        // track who is "cured" by whose flush is 256!
+        
         if (this.hasDisease) {
-
             if (this.g < this.maxFlush) {
                 // Add flush points to "heal" to white
                 this.g += 0.7 * this.flushFade;
                 this.b += 0.7 * this.flushFade;
+
             } else {
+                // travelers are "cured" (and no longer contagious) when they reach maxFlush!
+                this.isContagious = false;
+
                 // Subtract flush points to "immune" to green
                 this.r -= 6 * this.flushFade;
                 this.b -= 3 * this.flushFade;
@@ -445,15 +480,8 @@ POP.Household = function(x, y) {
     this.x = x;
     this.y = y;
     this.halfWidth = this.size;
+    this.radius = this.halfWidth + 2; // to use circular collision detection
     this.infected = false;
-
-    this.update = function() {
-        // TODO: check for collisions with other entities,
-        var collided = Math.random() < 0.5;
-        if (collided) {
-            this.infected = true;
-        }
-    };
 
     this.render = function() {
         var color;
@@ -464,6 +492,10 @@ POP.Household = function(x, y) {
         }
         POP.Draw.house(this.x, this.y, this.halfWidth, color);
     };
+
+    this.setInfected = function() {
+        this.infected = true;
+    }
 };
 
 window.addEventListener('load', POP.init, false);
