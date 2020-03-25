@@ -25,7 +25,7 @@ canvas { display: block; margin: 0 auto; background: #fff; }
 var POP = {
 
     // set up some initial values
-    WIDTH: 480, //320, 
+    WIDTH: 320, 
     HEIGHT:  480, 
     // we'll set the rest of these
     // in the init function
@@ -105,15 +105,15 @@ var POP = {
 
     resize: function() {
 
-        // // sniff out Android and iOS so that we can add
-        // // padding to scroll past the address bar
-        // var ua = navigator.userAgent.toLowerCase();
-        // var android = ua.indexOf('android') > -1 ? true : false;
-        // var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
+        // sniff out Android and iOS so that we can add
+        // padding to scroll past the address bar
+        var ua = navigator.userAgent.toLowerCase();
+        var android = ua.indexOf('android') > -1 ? true : false;
+        var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
 
-        // if (android || ios) {
-        //     document.body.style.height = (window.innerHeight + 50) + 'px';
-        // }
+        if (android || ios) {
+            document.body.style.height = (window.innerHeight + 50) + 'px';
+        }
 
         // resize the width in proportion
         // to the new height
