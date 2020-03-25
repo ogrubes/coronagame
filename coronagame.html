@@ -70,17 +70,19 @@ var POP = {
         // we're ready to resize
         POP.resize();
 
-		// listen for clicks (touch & lift)
+// listen for clicks (touch & lift)
 		window.addEventListener('click', function(e) {
 		    e.preventDefault();
 		    POP.Input.set(e);
 		}, false);
+// listen for taps (mobile use)
+                window.addEventListener('touchstart', function(e) {
+		    e.preventDefault();
+                    POP.Input.set(e.touches[0]);
+		}, false);
 
         // prevent default behaviors
         // so the screen doesn't tap, scroll, or zoom
-		window.addEventListener('touchstart', function(e) {
-		    e.preventDefault();
-		}, false);
 		window.addEventListener('touchmove', function(e) {
 		    e.preventDefault();
 		}, false);
