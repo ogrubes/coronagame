@@ -27,6 +27,7 @@ var POP = {
     WIDTH: 320, 
     HEIGHT: 480,
     mobile: true,
+    darkmode: false,
 
     // track the position of the canvas
     // in relation to the screen
@@ -44,8 +45,12 @@ var POP = {
     // number of game ticks until we spawn a traveler
     nextTraveler: 100,
 
-    // tracks home screen messages
-    textCounter: 0,
+    // trackers
+    dialogMode: true, // vs gameplay mode
+    textCounter: 0,  // home screen messages
+    timeCounter: null,  // tracks time since level start
+    levelCounter: 0, // determines gameplay
+    levels: [15, 30, 45, 60, 90, 120, 180, 300, 450, 1000], // number of seconds in each level
 
     init: function() {
         // prevent default event behaviors
@@ -87,7 +92,14 @@ var POP = {
             POP.Input.set(e.touches[0]);
         });
 
+        POP.dialogMode = false;
         POP.loop();
+    },
+
+    tapToStart: function() {
+        // helper to restart game loop
+        window.addEventListener('click', POP.startEvent);
+        window.addEventListener('touchstart', POP.startEvent);
     },
 
     resizeCanvas: function() {
@@ -101,8 +113,10 @@ var POP = {
         if (android || ios) {
             document.body.style.height = (window.innerHeight + 50) + 'px';
         } else {
-            POP.mobile = false;
-            POP.WIDTH = POP.HEIGHT; // make square on desktop
+            if (!POP.Debug.forceMobile) {
+                POP.mobile = false;
+                POP.WIDTH = POP.HEIGHT; // make square on desktop
+            }
         }
 
         // the proportion of width to height
@@ -142,6 +156,9 @@ var POP = {
         var width = 120;
         POP.Draw.rect(POP.Util.random(width/4, POP.WIDTH-width/4), POP.Util.random(width/2, POP.HEIGHT/2-width/4), width, width, '#2B2');
         POP.Draw.rect(POP.Util.random(0, POP.WIDTH - 1.5*width), POP.Util.random(POP.HEIGHT/2, POP.HEIGHT-width/2), width, width, 'green');
+        if (!POP.mobile) {
+            POP.Draw.rect(POP.Util.random(0, POP.WIDTH - 1.5*width), POP.Util.random(POP.HEIGHT/4, 3*POP.HEIGHT/4), width, width, Math.random() < 0.5 ? 'green' : '#2B2');
+        }
 
         // Circles
         var numCircles = POP.mobile ? 3 : 4;
@@ -157,13 +174,14 @@ var POP = {
         }
         
         // Text
-        var fontSize = 10;
+        var titleSize = POP.mobile ? 12 : 18;
+        var fontSize = POP.mobile ? 10 : 15;
         var fontLine = 1.5*fontSize;
         var x = 40;
-        var y = 120;
+        var y = 80;
         // draw twice for extra bold!
-        POP.Draw.text('Humans. You are in grave danger.', x, y, fontSize, 'black');
-        POP.Draw.text('Humans. You are in grave danger.', x, y, fontSize, 'black');
+        POP.Draw.text('Humans. You are in grave danger.', x, y, titleSize, 'black');
+        POP.Draw.text('Humans. You are in grave danger.', x, y, titleSize, 'black');
 
         if (POP.textCounter == 0) {
             POP.Draw.text('(tap to continue)', x, y + fontLine, fontSize, '#333');
@@ -172,10 +190,10 @@ var POP = {
 
     startText: function() {
         var color = 'black';
-        var fontSize = 10;
+        var fontSize = POP.mobile ? 10 : 15;
         var fontLine = 1.5*fontSize;
         var x = 40;
-        var y = 120;
+        var y = 80;
 
         POP.textCounter += 1;
 
@@ -216,21 +234,97 @@ var POP = {
             window.removeEventListener('touchstart', POP.startText);
  
             // add listeners for game loop!
-            window.addEventListener('click', POP.startEvent);
-            window.addEventListener('touchstart', POP.startEvent);
+            POP.tapToStart();
         }
+    },
+
+    levelPass: function(numPreserved) {
+        // stop game loop
+        POP.dialogMode = true;
+
+        // render levelPass messages
+        var passMessage = numPreserved+' of '+POP.numHouseholds+' households';
+        // TBD: fix hardcoded text placement to whatever looked good.
+        if (POP.mobile) {
+            POP.Draw.text('Level Passed!', 50, POP.HEIGHT / 2, 30, 'black');
+            POP.Draw.text(passMessage, 50, POP.HEIGHT / 2 + 25, 20, 'black');
+            POP.Draw.text('preserved', 110, POP.HEIGHT / 2 + 40, 20, 'black');
+        } else {
+            POP.Draw.text('Level Passed!', 50, POP.HEIGHT / 2, 50, 'black');
+            passMessage += ' preserved'
+            POP.Draw.text(passMessage, 60, POP.HEIGHT / 2 + 40, 20, 'black');
+        }
+
+        // reset for next level!
+        POP.setup();
+        POP.tapToStart();
+    },
+
+    endGame: function() {
+        // stop game loop
+        POP.dialogMode = true;
+
+        // render end game screen.
+        // this is a lose screen. note that there is no win screen, as there is no winning. coronagame is a game of endurance, as is life.
+
+        var subMessages = [
+            'Tap to try again,',
+            '  but know you only need to play',
+            '  so long as you want to live.',
+            '',
+            'Not unlike quarantine.',
+            '',
+            'Stay safe out there.',
+        ];
+
+        var x; var fontSize;
+        var y = POP.HEIGHT * 0.4;
+
+        if (POP.mobile) {
+            x = 55;
+            fontSize = 12;
+            POP.Draw.text('UNIVERSAL INFECTION.', 45, y - 8, 20, 'black');
+        } else {
+            x = 75;
+            fontSize = 15;
+            POP.Draw.text('UNIVERSAL INFECTION.', 60, y, 30, 'black');
+        }
+        for (var i = 0; i < subMessages.length; i++) {
+            POP.Draw.text(subMessages[i], x, y + (i+2)*(fontSize+2), fontSize, 'black');
+        }
+
+        // level achieved.
+        // if last level, X seconds lasted. Y seconds total!
+        // if the player made it to the final or infinite level (!!), replay from last played. else, restart from level 1.
+        if (POP.levelCounter < POP.levels.length) {
+            POP.levelCounter = 0;
+        } else {
+            POP.levelCounter -= 1; // this will immediately bump back in setup()
+        }
+        // num houses encountered
+        POP.setup();
+        POP.tapToStart();
     },
 
     // Populate game data (household placements, static settings)
     setup: function() {
 
-        // Place households
+        // Track time & levels
+        POP.levelCounter += 1;
+        POP.timeCounter = 0;
+
+        // Reset households, travelers, shields on each level setup
+        POP.households = [];
+        POP.travelers = [];
+        POP.shields = [];
+        POP.numHouseholds = 10 + POP.levelCounter-1;
+
+        // TBD: change other game mechanics between levels?
+        
         // Place more households for non-mobile env (more space)
-        if (!POP.mobile) {
-            POP.numHouseholds = 1.5 * POP.numHouseholds;
-        }
-        // 50 pixels from any edge
-        var edgeBuffer = 50;
+        if (!POP.mobile) POP.numHouseholds = Math.ceil(1.5*POP.numHouseholds);
+
+        var edgeBuffer = 60; // offset pixels from any edge
         for (var i = 0; i < POP.numHouseholds; i++) {
             var x = POP.Util.edgeX(edgeBuffer);
             var y = POP.Util.edgeY(edgeBuffer);
@@ -238,38 +332,9 @@ var POP = {
         }
     },
 
-    // 2. update characters and process collisions
-    update: function() {
-
-        // cycle through all travelers and update as necessary
-        for (var i = 0; i < POP.travelers.length; i++) {
-            POP.travelers[i].update();
-
-            // delete from array if remove property is set
-            if (POP.travelers[i].remove) {
-                POP.travelers.splice(i, 1);
-            }
-        }
-
-        // cycle through all shields
-        for (var i = 0; i < POP.shields.length; i++) {
-            POP.shields[i].update();
-
-            // delete from array if remove property is set
-            if (POP.shields[i].remove) {
-                POP.shields.splice(i, 1);
-            }
-        }
-
-        // cycle through all households, which may spawn travelers
-        for (var i = 0; i < POP.households.length; i++) {
-            POP.households[i].update();
-        }
-
-        // check for collisions with travelers!
-        // do this here centrally instead of in individual entity
-        // "update" methods to enable travelers to run their updates
-        // independently first; also to allow algorithmic efficiency.
+    infectCollisions: function() {
+        // check for household collisions with travelers!
+        // infect households that are not shielded.
         for (var t = 0; t < POP.travelers.length; t++) {
             var traveler = POP.travelers[t];
             if (!traveler.isContagious) continue;
@@ -296,6 +361,80 @@ var POP = {
 
             }
         }
+    },
+
+    runStopConditions: function() {
+        // return true if stop condition reached; false otherwise
+
+        // count number of infected houses
+        // (explicit value is used for pass level message)
+        var numPreserved = 0;
+        for (var i = 0; i < POP.households.length; i++) {
+            if (!POP.households[i].infected) {
+                numPreserved++;
+            }
+        }
+
+        // Detect Level Failure
+        if (numPreserved == 0 || POP.Debug.forceFail) {
+            POP.endGame();
+            return true;
+        }
+
+        // Detect Level Pass! (must come after level failure check)
+        if (POP.levelCounter > POP.levels.length) {
+            // TBD: currently no way to beat the "infinite" level.
+            // it's just a game of lasting the longest count.
+            return false;
+        }
+        if (POP.Util.timeCount() > POP.levels[POP.levelCounter - 1]) {
+            POP.levelPass(numPreserved);
+            return true;
+        }
+
+        return false;
+    },
+
+    // 2. Detect stop conditions, update characters, and process collisions
+    update: function() {
+
+        POP.timeCounter++;
+
+        // Check for stop conditions once per second.
+        if (POP.timeCounter % 60 == 0) {
+            var levelEnd = POP.runStopConditions();
+            if (levelEnd) return;
+        }
+
+        // cycle through all travelers and update as necessary
+        for (var i = 0; i < POP.travelers.length; i++) {
+            POP.travelers[i].update();
+
+            // delete from array if remove property is set
+            if (POP.travelers[i].remove) {
+                POP.travelers.splice(i, 1);
+            }
+        }
+
+        // cycle through all shields
+        for (var i = 0; i < POP.shields.length; i++) {
+            POP.shields[i].update();
+
+            // delete from array if remove property is set
+            if (POP.shields[i].remove) {
+                POP.shields.splice(i, 1);
+            }
+        }
+
+        // cycle through all households, which may spawn travelers
+        for (var i = 0; i < POP.households.length; i++) {
+            POP.households[i].update();
+        }
+
+        // do this here centrally instead of in individual entity
+        // "update" methods to enable travelers to run their updates
+        // independently first; also to allow algorithmic efficiency.
+        POP.infectCollisions();
 
         // EVENT LISTENERS
 
@@ -328,7 +467,14 @@ var POP = {
 
     // 3. render stage & characters on the screen
     render: function() {
+
         POP.Draw.background();
+
+        // Counter
+        var fontSize = 30
+        var buffer = 1.25*fontSize
+        var time = POP.Util.timeCount()
+        POP.Draw.text(time, POP.WIDTH - buffer - fontSize/2*Math.floor(Math.log10(time)), buffer, fontSize, 'black')
 
         // Households
         for (var j = 0; j < POP.households.length; j++) {
@@ -349,13 +495,17 @@ var POP = {
         // requestAnimationFrame is essentially a smoother version
         // of window.setTimeout(callback, 1000/60); which calls our
         // callback (in this case, loop) at 60 frames per second.
-        //
-        // we enter into the loop fron POP.init, which also sets 
-        // event listeners for user input.
-        window.requestAnimationFrame( POP.loop );
-        POP.update();
-        POP.render();
+        if (!POP.dialogMode) {
+            window.requestAnimationFrame( POP.loop );
+            POP.render();
+            POP.update();
+        }
     }
+};
+
+POP.Debug = {
+    forceMobile: false,
+    forceFail: false,
 };
 
 POP.Input = {
@@ -364,6 +514,9 @@ POP.Input = {
     tapped: false,
 
     set: function(data) {
+        // No need to save user Inputs during dialog mode
+        if (POP.dialogMode) return;
+
         this.x = (data.pageX - POP.canvas.offsetLeft) / POP.scale;
         this.y = (data.pageY - POP.canvas.offsetTop) / POP.scale;
         this.tapped = true; 
@@ -381,7 +534,16 @@ POP.Draw = {
 
     background: function() {
         var lightBlue = '#ADD8FF';
-        POP.Draw.rect(0, 0, POP.WIDTH, POP.HEIGHT, lightBlue);
+        var color = lightBlue;
+
+        // TODO: enable darkmode detection!
+        if (POP.darkmode) color = 'black';
+        // easter eggs :)
+        if (POP.Util.timeCount() == 666) color = 'red';
+        if (POP.Util.timeCount() == 777) color = 'lightgreen';
+        if (POP.Util.timeCount() == 888) color = 'gold';
+
+        POP.Draw.rect(0, 0, POP.WIDTH, POP.HEIGHT, color);
     },
 
     rect: function(x, y, w, h, color) {
@@ -478,6 +640,10 @@ POP.Util = {
         // edgeBuffer specifies the number of pixels from any edge
         return Math.random() * (POP.HEIGHT - 2*edgeBuffer) + edgeBuffer;
     },
+
+    timeCount: function() {
+        return Math.floor(POP.timeCounter / 60);
+    }
 };
 
 // Generate Shields at touch points.
