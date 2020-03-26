@@ -49,8 +49,9 @@ var POP = {
     dialogMode: true, // vs gameplay mode
     textCounter: 0,  // home screen messages
     timeCounter: null,  // tracks time since level start
-    levelCounter: 0, // determines gameplay
+    levelCounter: 0, // determines level of gameplay
     levels: [15, 30, 45, 60, 90, 180, 300, 450, 1000], // number of seconds in each level
+    score: 0,
 
     init: function() {
         // prevent default event behaviors
@@ -244,6 +245,7 @@ var POP = {
     levelPass: function(numPreserved) {
         // stop game loop
         POP.dialogMode = true;
+        POP.score += numPreserved;
 
         // render levelPass messages
         var passMessage = numPreserved+' of '+POP.numHouseholds+' households';
@@ -283,37 +285,38 @@ var POP = {
 
         var x; var fontSize;
         var y = POP.HEIGHT * 0.4;
+        var scoreMessage = `Total Score: ${POP.score} house${POP.score == 1 ? '' : 's'} saved`;
+        var scoreDigits = POP.score < 2 ? 1 : Math.ceil(Math.log10(POP.score));
 
         if (POP.mobile) {
             x = 55;
             fontSize = 12;
-            POP.Draw.text('UNIVERSAL INFECTION.', 45, y - 8, 20, 'black');
+            POP.Draw.text('UNIVERSAL INFECTION.', 40, y - 8, 20, 'black');
+            POP.Draw.text(scoreMessage, 40 - 5*scoreDigits, 205, 15, 'black');
+            y += 20;
         } else {
             x = 75;
             fontSize = 15;
             POP.Draw.text('UNIVERSAL INFECTION.', 60, y, 30, 'black');
+            POP.Draw.text(scoreMessage, 75 - 7*scoreDigits, 215, 20, 'black');
+            y += 30;
         }
 
         // TBD: if last level achieved, show X seconds lasted. Y seconds total!
 
-        // 3, 2, 1
-        var countdownLen = POP.mobile ? 
-            POP.countdown(100, 200, 50, 15, 'black') :
-            POP.countdown(125, 215, 75, 20, 'black');
-
         setTimeout(function() {
             var subMessages = [
-                '',
                 'Tap to try again,',
                 '  but know you only need to play',
-                '  so long as you want to live.',
+                '  so long as you want to avoid',
+                '  infection.',
                 '',
                 'Not unlike quarantine.',
                 '',
-                'Stay safe in there.',
+                'Stay safe in there!',
             ];
             for (var i = 0; i < subMessages.length; i++) {
-                POP.Draw.text(subMessages[i], x, y + (i+2)*(fontSize+2), fontSize, 'black');
+                POP.Draw.text(subMessages[i], x, y + (i+2)*(fontSize+2), fontSize, '#333');
             }
 
             // if the player made it to the final or infinite level (!!), replay from last played. else, restart from level 1.
@@ -326,7 +329,7 @@ var POP = {
             POP.setup();
             POP.tapToStart();
 
-        }, countdownLen + 1000);
+        }, 2000);
     },
 
     countdown: function(x, y, spacing, fontSize, color) {
@@ -511,6 +514,8 @@ var POP = {
         var fontSize = 30
         var buffer = 1.25*fontSize
         var time = POP.Util.timeCount()
+        // time == 0 is actually showing at -Infinity, but
+        // it's kind of nice to keep off the screen.
         POP.Draw.text(time, POP.WIDTH - buffer - fontSize/2*Math.floor(Math.log10(time)), buffer, fontSize, 'black')
 
         // Households
