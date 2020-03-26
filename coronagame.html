@@ -175,10 +175,10 @@ var POP = {
         
         // Text
         var titleSize = POP.mobile ? 12 : 18;
-        var fontSize = POP.mobile ? 10 : 15;
+        var fontSize = POP.mobile ? 10 : 12;
         var fontLine = 1.5*fontSize;
         var x = 40;
-        var y = 80;
+        var y = POP.mobile ? 115 : 90;
         // draw twice for extra bold!
         POP.Draw.text('Humans. You are in grave danger.', x, y, titleSize, 'black');
         POP.Draw.text('Humans. You are in grave danger.', x, y, titleSize, 'black');
@@ -190,10 +190,10 @@ var POP = {
 
     startText: function() {
         var color = 'black';
-        var fontSize = POP.mobile ? 10 : 15;
+        var fontSize = POP.mobile ? 10 : 13;
         var fontLine = 1.5*fontSize;
-        var x = 40;
-        var y = 80;
+        var x = POP.mobile ? 40 : 60;
+        var y = POP.mobile ? 115 : 90;
 
         POP.textCounter += 1;
 
