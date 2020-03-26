@@ -50,7 +50,7 @@ var POP = {
     textCounter: 0,  // home screen messages
     timeCounter: null,  // tracks time since level start
     levelCounter: 0, // determines gameplay
-    levels: [15, 30, 45, 60, 90, 120, 180, 300, 450, 1000], // number of seconds in each level
+    levels: [15, 30, 45, 60, 90, 180, 300, 450, 1000], // number of seconds in each level
 
     init: function() {
         // prevent default event behaviors
@@ -212,6 +212,9 @@ var POP = {
             'It is your duty to shield the households',
             '  from infected persons.',
             '',
+            'Tap to spawn a shield around your homes',
+            '  to protect them from infection.',
+            '',
             'Good luck! (tap to start)',
         ];
 
@@ -246,18 +249,29 @@ var POP = {
         var passMessage = numPreserved+' of '+POP.numHouseholds+' households';
         // TBD: fix hardcoded text placement to whatever looked good.
         if (POP.mobile) {
-            POP.Draw.text('Level Passed!', 50, POP.HEIGHT / 2, 30, 'black');
+            POP.Draw.text(`Level ${POP.levelCounter} Passed`, 40, POP.HEIGHT / 2, 30, 'black');
             POP.Draw.text(passMessage, 50, POP.HEIGHT / 2 + 25, 20, 'black');
-            POP.Draw.text('preserved', 110, POP.HEIGHT / 2 + 40, 20, 'black');
+            POP.Draw.text('preserved', 110, POP.HEIGHT / 2 + 45, 20, 'black');
         } else {
-            POP.Draw.text('Level Passed!', 50, POP.HEIGHT / 2, 50, 'black');
+            POP.Draw.text(`Level ${POP.levelCounter} Passed`, 55, POP.HEIGHT / 2, 45, 'black');
             passMessage += ' preserved'
-            POP.Draw.text(passMessage, 60, POP.HEIGHT / 2 + 40, 20, 'black');
+            POP.Draw.text(passMessage, 55, POP.HEIGHT / 2 + 35, 22, 'black');
         }
 
         // reset for next level!
-        POP.setup();
-        POP.tapToStart();
+        var countdownLen = POP.mobile ? 
+            POP.countdown(95, 315, 50, 18, 'black') :
+            POP.countdown(135, 315, 75, 20, 'black');
+
+        setTimeout(function() {
+            if (POP.mobile) {
+                POP.Draw.text('Tap to Continue', 90, 340, 16, 'black')
+            } else {
+                POP.Draw.text('Tap to Continue', POP.WIDTH/2, POP.HEIGHT*3/4, 20, 'black')
+            }
+            POP.setup();
+            POP.tapToStart();
+        }, countdownLen + 1000);
     },
 
     endGame: function() {
@@ -266,16 +280,6 @@ var POP = {
 
         // render end game screen.
         // this is a lose screen. note that there is no win screen, as there is no winning. coronagame is a game of endurance, as is life.
-
-        var subMessages = [
-            'Tap to try again,',
-            '  but know you only need to play',
-            '  so long as you want to live.',
-            '',
-            'Not unlike quarantine.',
-            '',
-            'Stay safe out there.',
-        ];
 
         var x; var fontSize;
         var y = POP.HEIGHT * 0.4;
@@ -289,21 +293,56 @@ var POP = {
             fontSize = 15;
             POP.Draw.text('UNIVERSAL INFECTION.', 60, y, 30, 'black');
         }
-        for (var i = 0; i < subMessages.length; i++) {
-            POP.Draw.text(subMessages[i], x, y + (i+2)*(fontSize+2), fontSize, 'black');
-        }
 
-        // level achieved.
-        // if last level, X seconds lasted. Y seconds total!
-        // if the player made it to the final or infinite level (!!), replay from last played. else, restart from level 1.
-        if (POP.levelCounter < POP.levels.length) {
-            POP.levelCounter = 0;
-        } else {
-            POP.levelCounter -= 1; // this will immediately bump back in setup()
-        }
-        // num houses encountered
-        POP.setup();
-        POP.tapToStart();
+        // TBD: if last level achieved, show X seconds lasted. Y seconds total!
+
+        // 3, 2, 1
+        var countdownLen = POP.mobile ? 
+            POP.countdown(100, 200, 50, 15, 'black') :
+            POP.countdown(125, 215, 75, 20, 'black');
+
+        setTimeout(function() {
+            var subMessages = [
+                '',
+                'Tap to try again,',
+                '  but know you only need to play',
+                '  so long as you want to live.',
+                '',
+                'Not unlike quarantine.',
+                '',
+                'Stay safe in there.',
+            ];
+            for (var i = 0; i < subMessages.length; i++) {
+                POP.Draw.text(subMessages[i], x, y + (i+2)*(fontSize+2), fontSize, 'black');
+            }
+
+            // if the player made it to the final or infinite level (!!), replay from last played. else, restart from level 1.
+            if (POP.levelCounter < POP.levels.length) {
+                POP.levelCounter = 0;
+            } else {
+                POP.levelCounter -= 1; // this will immediately bump back in setup()
+            }
+            // num houses encountered
+            POP.setup();
+            POP.tapToStart();
+
+        }, countdownLen + 1000);
+    },
+
+    countdown: function(x, y, spacing, fontSize, color) {
+        // just render to 3 different spots on the screen to avoid
+        // redrawing the canvas :|
+        setTimeout(function() {
+            POP.Draw.text(`3...`, x, y, fontSize, color);
+        }, 1000);
+        setTimeout(function() {
+            POP.Draw.text(`2...`, x + spacing, y, fontSize, color);
+        }, 2000);
+        setTimeout(function() {
+            POP.Draw.text(`1...`, x + 2*spacing, y, fontSize, color);
+        }, 3000);
+
+        return 3000;
     },
 
     // Populate game data (household placements, static settings)
@@ -435,8 +474,6 @@ var POP = {
         // "update" methods to enable travelers to run their updates
         // independently first; also to allow algorithmic efficiency.
         POP.infectCollisions();
-
-        // EVENT LISTENERS
 
         // spawn a new instance of Shield
         // if the user has tapped the screen
