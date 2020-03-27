@@ -105,19 +105,19 @@ var POP = {
 
     resizeCanvas: function() {
 
-        // sniff out Android and iOS so that we can add
-        // padding to scroll past the address bar
+        // sniff out Android and iOS so we can make
+        // mobile-specific sizing
         var ua = navigator.userAgent.toLowerCase();
         var android = ua.indexOf('android') > -1 ? true : false;
         var ios = ( ua.indexOf('iphone') > -1 || ua.indexOf('ipad') > -1  ) ? true : false;
 
-        if (android || ios) {
-            document.body.style.height = (window.innerHeight + 50) + 'px';
+        if (android || ios || POP.Debug.forceMobile) {
+            POP.mobile = true;
+            // // add padding to scroll past the address bar
+            // document.body.style.height = (window.innerHeight + 50) + 'px';
         } else {
-            if (!POP.Debug.forceMobile) {
-                POP.mobile = false;
-                POP.WIDTH = POP.HEIGHT; // make square on desktop
-            }
+            POP.mobile = false;
+            POP.WIDTH = POP.HEIGHT; // make square on desktop
         }
 
         // the proportion of width to height
